@@ -8,7 +8,7 @@
 
 #include "clang-mlir.h"
 #include "TypeUtils.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Target/LLVMIR/Import.h"
@@ -998,14 +998,14 @@ ValueCategory MLIRScanner::VisitCXXStdInitializerListExpr(
 
   res = builder.create<LLVM::InsertValueOp>(loc, res.getType(), res,
                                             ArrayPtr.getValue(loc, builder),
-                                            builder.getDenseI64ArrayAttr(0));
+                                            builder.getI64ArrayAttr(0));
   Field++;
   auto iTy = getMLIRType(Field->getType()).cast<mlir::IntegerType>();
   res = builder.create<LLVM::InsertValueOp>(
       loc, res.getType(), res,
       builder.create<arith::ConstantIntOp>(
           loc, ArrayType->getSize().getZExtValue(), iTy.getWidth()),
-      builder.getDenseI64ArrayAttr(1));
+      builder.getI64ArrayAttr(1));
   return ValueCategory(res, /*isRef*/ false);
 }
 

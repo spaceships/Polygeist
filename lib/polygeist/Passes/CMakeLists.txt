@@ -24,7 +24,7 @@ add_mlir_dialect_library(MLIRPolygeistTransforms
 
   LINK_LIBS PUBLIC
   MLIRAffineDialect
-  MLIRArithDialect
+  MLIRArithmeticDialect
   MLIRAsyncDialect
   MLIRAffineUtils
   MLIRFuncDialect
@@ -44,6 +44,6 @@ add_mlir_dialect_library(MLIRPolygeistTransforms
   MLIRControlFlowToLLVM
   MLIRMemRefToLLVM
   MLIRFuncToLLVM
-  MLIRArithToLLVM
+  MLIRArithmeticToLLVM
   MLIROpenMPToLLVM
   )

@@ -208,7 +208,7 @@ private:
 public:
   const FunctionDecl *EmittingFunctionDecl;
   std::map<const ValueDecl *, ValueCategory> params;
-  llvm::DenseMap<const ValueDecl *, FieldDecl *> Captures;
+  llvm::DenseMap<const VarDecl *, FieldDecl *> Captures;
   llvm::DenseMap<const ValueDecl *, LambdaCaptureKind> CaptureKinds;
   FieldDecl *ThisCapture;
   std::vector<mlir::Value> arrayinit;

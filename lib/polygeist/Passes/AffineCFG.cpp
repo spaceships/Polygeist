@@ -15,7 +15,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 #include <deque>
-#include <mlir/Dialect/Arith/IR/Arith.h>
+#include <mlir/Dialect/Arithmetic/IR/Arithmetic.h>
 
 #define DEBUG_TYPE "affine-cfg"
 

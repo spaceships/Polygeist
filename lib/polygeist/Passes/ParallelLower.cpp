@@ -28,7 +28,7 @@
 #include "polygeist/Passes/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include <algorithm>
-#include <mlir/Dialect/Arith/IR/Arith.h>
+#include <mlir/Dialect/Arithmetic/IR/Arithmetic.h>
 #include <mutex>
 
 #define DEBUG_TYPE "parallel-lower-opt"
@@ -293,7 +293,7 @@ void ParallelLower::runOnOperation() {
         auto tok = v.getDefiningOp<polygeist::StreamToTokenOp>();
         dependencies.push_back(builder.create<polygeist::StreamToTokenOp>(
             tok.getLoc(), builder.getType<async::TokenType>(),
-            tok.getSource()));
+            tok.source()));
       }
       asyncOp = builder.create<mlir::async::ExecuteOp>(
           loc, /*results*/ TypeRange(), /*dependencies*/ dependencies,
@@ -304,8 +304,8 @@ void ParallelLower::runOnOperation() {
 
     auto block = builder.create<mlir::scf::ParallelOp>(
         loc, std::vector<Value>({zindex, zindex, zindex}),
-        std::vector<Value>({launchOp.getGridSizeX(), launchOp.getGridSizeY(),
-                            launchOp.getGridSizeZ()}),
+        std::vector<Value>({launchOp.gridSizeX(), launchOp.gridSizeY(),
+                            launchOp.gridSizeZ()}),
         std::vector<Value>({oneindex, oneindex, oneindex}));
     Block *blockB = &block.getRegion().front();
 
@@ -313,8 +313,8 @@ void ParallelLower::runOnOperation() {
 
     auto threadr = builder.create<mlir::scf::ParallelOp>(
         loc, std::vector<Value>({zindex, zindex, zindex}),
-        std::vector<Value>({launchOp.getBlockSizeX(), launchOp.getBlockSizeY(),
-                            launchOp.getBlockSizeZ()}),
+        std::vector<Value>({launchOp.blockSizeX(), launchOp.blockSizeY(),
+                            launchOp.blockSizeZ()}),
         std::vector<Value>({oneindex, oneindex, oneindex}));
     Block *threadB = &threadr.getRegion().front();
 
@@ -323,12 +323,12 @@ void ParallelLower::runOnOperation() {
     SmallVector<Value> launchArgs;
     llvm::append_range(launchArgs, blockB->getArguments());
     llvm::append_range(launchArgs, threadB->getArguments());
-    launchArgs.push_back(launchOp.getGridSizeX());
-    launchArgs.push_back(launchOp.getGridSizeY());
-    launchArgs.push_back(launchOp.getGridSizeZ());
-    launchArgs.push_back(launchOp.getBlockSizeX());
-    launchArgs.push_back(launchOp.getBlockSizeY());
-    launchArgs.push_back(launchOp.getBlockSizeZ());
+    launchArgs.push_back(launchOp.gridSizeX());
+    launchArgs.push_back(launchOp.gridSizeY());
+    launchArgs.push_back(launchOp.gridSizeZ());
+    launchArgs.push_back(launchOp.blockSizeX());
+    launchArgs.push_back(launchOp.blockSizeY());
+    launchArgs.push_back(launchOp.blockSizeZ());
     builder.mergeBlockBefore(&launchOp.getRegion().front(),
                              threadr.getRegion().front().getTerminator(),
                              launchArgs);
@@ -337,11 +337,11 @@ void ParallelLower::runOnOperation() {
 
     container.walk([&](mlir::gpu::BlockIdOp bidx) {
       int idx = -1;
-      if (bidx.getDimension() == gpu::Dimension::x)
+      if (bidx.dimension() == gpu::Dimension::x)
         idx = 0;
-      else if (bidx.getDimension() == gpu::Dimension::y)
+      else if (bidx.dimension() == gpu::Dimension::y)
         idx = 1;
-      else if (bidx.getDimension() == gpu::Dimension::z)
+      else if (bidx.dimension() == gpu::Dimension::z)
         idx = 2;
       else
         assert(0 && "illegal dimension");
@@ -377,11 +377,11 @@ void ParallelLower::runOnOperation() {
 
     container.walk([&](mlir::gpu::ThreadIdOp bidx) {
       int idx = -1;
-      if (bidx.getDimension() == gpu::Dimension::x)
+      if (bidx.dimension() == gpu::Dimension::x)
         idx = 0;
-      else if (bidx.getDimension() == gpu::Dimension::y)
+      else if (bidx.dimension() == gpu::Dimension::y)
         idx = 1;
-      else if (bidx.getDimension() == gpu::Dimension::z)
+      else if (bidx.dimension() == gpu::Dimension::z)
         idx = 2;
       else
         assert(0 && "illegal dimension");
@@ -396,12 +396,12 @@ void ParallelLower::runOnOperation() {
 
     container.walk([&](gpu::GridDimOp bidx) {
       Value val = nullptr;
-      if (bidx.getDimension() == gpu::Dimension::x)
-        val = launchOp.getGridSizeX();
-      else if (bidx.getDimension() == gpu::Dimension::y)
-        val = launchOp.getGridSizeY();
-      else if (bidx.getDimension() == gpu::Dimension::z)
-        val = launchOp.getGridSizeZ();
+      if (bidx.dimension() == gpu::Dimension::x)
+        val = launchOp.gridSizeX();
+      else if (bidx.dimension() == gpu::Dimension::y)
+        val = launchOp.gridSizeY();
+      else if (bidx.dimension() == gpu::Dimension::z)
+        val = launchOp.gridSizeZ();
       else
         assert(0 && "illegal dimension");
       builder.replaceOp(bidx, val);
@@ -409,12 +409,12 @@ void ParallelLower::runOnOperation() {
 
     container.walk([&](gpu::BlockDimOp bidx) {
       Value val = nullptr;
-      if (bidx.getDimension() == gpu::Dimension::x)
-        val = launchOp.getBlockSizeX();
-      else if (bidx.getDimension() == gpu::Dimension::y)
-        val = launchOp.getBlockSizeY();
-      else if (bidx.getDimension() == gpu::Dimension::z)
-        val = launchOp.getBlockSizeZ();
+      if (bidx.dimension() == gpu::Dimension::x)
+        val = launchOp.blockSizeX();
+      else if (bidx.dimension() == gpu::Dimension::y)
+        val = launchOp.blockSizeY();
+      else if (bidx.dimension() == gpu::Dimension::z)
+        val = launchOp.blockSizeZ();
       else
         assert(0 && "illegal dimension");
       builder.replaceOp(bidx, val);
@@ -497,7 +497,7 @@ void ParallelLower::runOnOperation() {
       {
         auto retv = bz.create<ConstantIntOp>(
             call.getLoc(), 0,
-            call.getResult().getType().cast<IntegerType>().getWidth());
+            call.getResult(0).getType().cast<IntegerType>().getWidth());
         Value vals[] = {retv};
         call.replaceAllUsesWith(ArrayRef<Value>(vals));
         call.erase();
@@ -511,7 +511,7 @@ void ParallelLower::runOnOperation() {
       {
         auto retv = bz.create<ConstantIntOp>(
             call.getLoc(), 0,
-            call.getResult().getType().cast<IntegerType>().getWidth());
+            call.getResult(0).getType().cast<IntegerType>().getWidth());
         Value vals[] = {retv};
         call.replaceAllUsesWith(ArrayRef<Value>(vals));
         call.erase();
@@ -520,7 +520,7 @@ void ParallelLower::runOnOperation() {
       OpBuilder bz(call);
       auto retv = bz.create<ConstantIntOp>(
           call.getLoc(), 0,
-          call.getResult().getType().cast<IntegerType>().getWidth());
+          call.getResult(0).getType().cast<IntegerType>().getWidth());
       Value vals[] = {retv};
       call.replaceAllUsesWith(ArrayRef<Value>(vals));
       call.erase();
@@ -528,7 +528,7 @@ void ParallelLower::runOnOperation() {
       OpBuilder bz(call);
       auto retv = bz.create<ConstantIntOp>(
           call.getLoc(), 0,
-          call.getResult().getType().cast<IntegerType>().getWidth());
+          call.getResult(0).getType().cast<IntegerType>().getWidth());
       Value vals[] = {retv};
       call.replaceAllUsesWith(ArrayRef<Value>(vals));
       call.erase();

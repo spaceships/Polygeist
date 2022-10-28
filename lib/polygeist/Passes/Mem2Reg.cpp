@@ -15,7 +15,7 @@
 #include "PassDetails.h"
 #include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -1307,15 +1307,15 @@ bool Mem2Reg::forwardStoreToLoad(
               if (Value val = effect.getValue()) {
                 while (true) {
                   if (auto co = val.getDefiningOp<memref::CastOp>())
-                    val = co.getSource();
+                    val = co.source();
                   else if (auto co = val.getDefiningOp<polygeist::SubIndexOp>())
-                    val = co.getSource();
+                    val = co.source();
                   else if (auto co =
                                val.getDefiningOp<polygeist::Memref2PointerOp>())
-                    val = co.getSource();
+                    val = co.source();
                   else if (auto co =
                                val.getDefiningOp<polygeist::Pointer2MemrefOp>())
-                    val = co.getSource();
+                    val = co.source();
                   else if (auto co = val.getDefiningOp<LLVM::BitcastOp>())
                     val = co.getArg();
                   else if (auto co = val.getDefiningOp<LLVM::AddrSpaceCastOp>())

@@ -221,8 +221,8 @@ static int ExecuteCC1Tool(SmallVectorImpl<const char *> &ArgV) {
   llvm::cl::ResetAllOptionOccurrences();
 
   llvm::BumpPtrAllocator A;
-  llvm::cl::ExpansionContext ECtx(A, llvm::cl::TokenizeGNUCommandLine);
-  ECtx.expandResponseFiles(ArgV);
+  StringSaver saver(A);
+  llvm::cl::ExpandResponseFiles(saver, llvm::cl::TokenizeGNUCommandLine, ArgV);
   StringRef Tool = ArgV[1];
   void *GetExecutablePathVP = (void *)(intptr_t)GetExecutablePath;
   if (Tool == "-cc1")

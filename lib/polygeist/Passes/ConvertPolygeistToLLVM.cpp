@@ -12,7 +12,7 @@
 #include "PassDetails.h"
 
 #include "mlir/Analysis/DataLayoutAnalysis.h"
-#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
@@ -57,19 +57,19 @@ struct SubIndexOpLowering : public ConvertOpToLLVMPattern<SubIndexOp> {
                   ConversionPatternRewriter &rewriter) const override {
     auto loc = subViewOp.getLoc();
 
-    if (!subViewOp.getSource().getType().isa<MemRefType>()) {
+    if (!subViewOp.source().getType().isa<MemRefType>()) {
       llvm::errs() << " func: " << subViewOp->getParentOfType<func::FuncOp>()
                    << "\n";
-      llvm::errs() << " sub: " << subViewOp << " - " << subViewOp.getSource()
+      llvm::errs() << " sub: " << subViewOp << " - " << subViewOp.source()
                    << "\n";
     }
-    auto sourceMemRefType = subViewOp.getSource().getType().cast<MemRefType>();
+    auto sourceMemRefType = subViewOp.source().getType().cast<MemRefType>();
 
     auto viewMemRefType = subViewOp.getType().cast<MemRefType>();
 
-    if (transformed.getSource().getType().isa<LLVM::LLVMPointerType>()) {
-      SmallVector<Value, 2> indices = {transformed.getIndex()};
-      auto t = transformed.getSource().getType().cast<LLVM::LLVMPointerType>();
+    if (transformed.source().getType().isa<LLVM::LLVMPointerType>()) {
+      SmallVector<Value, 2> indices = {transformed.index()};
+      auto t = transformed.source().getType().cast<LLVM::LLVMPointerType>();
       if (viewMemRefType.getShape().size() !=
           sourceMemRefType.getShape().size()) {
         auto zero = rewriter.create<arith::ConstantIntOp>(loc, 0, 64);
@@ -78,7 +78,7 @@ struct SubIndexOpLowering : public ConvertOpToLLVMPattern<SubIndexOp> {
             t.getElementType().cast<LLVM::LLVMArrayType>().getElementType(),
             t.getAddressSpace());
       }
-      auto ptr = rewriter.create<LLVM::GEPOp>(loc, t, transformed.getSource(),
+      auto ptr = rewriter.create<LLVM::GEPOp>(loc, t, transformed.source(),
                                               indices);
       std::vector ptrs = {ptr.getResult()};
       rewriter.replaceOpWithNewOp<LLVM::BitcastOp>(
@@ -87,9 +87,9 @@ struct SubIndexOpLowering : public ConvertOpToLLVMPattern<SubIndexOp> {
       return success();
     }
 
-    MemRefDescriptor targetMemRef(transformed.getSource());
+    MemRefDescriptor targetMemRef(transformed.source());
     Value prev = targetMemRef.alignedPtr(rewriter, loc);
-    Value idxs[] = {transformed.getIndex()};
+    Value idxs[] = {transformed.index()};
 
     SmallVector<Value, 4> sizes;
     SmallVector<Value, 4> strides;
@@ -128,7 +128,7 @@ struct SubIndexOpLowering : public ConvertOpToLLVMPattern<SubIndexOp> {
     if (false) {
       Value baseOffset = targetMemRef.offset(rewriter, loc);
       Value stride = targetMemRef.stride(rewriter, loc, 0);
-      Value offset = transformed.getIndex();
+      Value offset = transformed.index();
       Value mul = rewriter.create<LLVM::MulOp>(loc, offset, stride);
       baseOffset = rewriter.create<LLVM::AddOp>(loc, baseOffset, mul);
       targetMemRef.setOffset(rewriter, loc, baseOffset);
@@ -153,16 +153,16 @@ struct Memref2PointerOpLowering
                   ConversionPatternRewriter &rewriter) const override {
     auto loc = op.getLoc();
 
-    if (transformed.getSource().getType().isa<LLVM::LLVMPointerType>()) {
+    if (transformed.source().getType().isa<LLVM::LLVMPointerType>()) {
       auto ptr = rewriter.create<LLVM::BitcastOp>(loc, op.getType(),
-                                                  transformed.getSource());
+                                                  transformed.source());
       rewriter.replaceOp(op, {ptr});
       return success();
     }
 
     // MemRefDescriptor sourceMemRef(operands.front());
     MemRefDescriptor targetMemRef(
-        transformed.getSource()); // MemRefDescriptor::undef(rewriter, loc,
+        transformed.source()); // MemRefDescriptor::undef(rewriter, loc,
                                   // targetDescTy);
 
     // Offset.
@@ -190,13 +190,13 @@ struct Pointer2MemrefOpLowering
     auto convertedType = getTypeConverter()->convertType(op.getType());
     assert(convertedType && "unexpected failure in memref type conversion");
     if (auto PT = convertedType.dyn_cast<LLVM::LLVMPointerType>()) {
-      rewriter.replaceOpWithNewOp<LLVM::BitcastOp>(op, PT, adaptor.getSource());
+      rewriter.replaceOpWithNewOp<LLVM::BitcastOp>(op, PT, adaptor.source());
       return success();
     }
 
     auto descr = MemRefDescriptor::undef(rewriter, loc, convertedType);
     auto ptr = rewriter.create<LLVM::BitcastOp>(
-        op.getLoc(), descr.getElementPtrType(), adaptor.getSource());
+        op.getLoc(), descr.getElementPtrType(), adaptor.source());
 
     // Extract all strides and offsets and verify they are static.
     int64_t offset;
@@ -239,7 +239,7 @@ struct StreamToTokenOpLowering
   matchAndRewrite(StreamToTokenOp op, OpAdaptor transformed,
                   ConversionPatternRewriter &rewriter) const override {
 
-    Value v[] = {transformed.getSource()};
+    Value v[] = {transformed.source()};
     rewriter.replaceOp(op, v);
     return success();
   }
@@ -252,7 +252,7 @@ struct TypeSizeOpLowering : public ConvertOpToLLVMPattern<TypeSizeOp> {
   matchAndRewrite(TypeSizeOp op, OpAdaptor transformed,
                   ConversionPatternRewriter &rewriter) const override {
 
-    Type NT = op.getSourceAttr().getValue();
+    Type NT = op.sourceAttr().getValue();
     if (auto T = getTypeConverter()->convertType(NT)) {
       NT = T;
     }
@@ -267,7 +267,7 @@ struct TypeSizeOpLowering : public ConvertOpToLLVMPattern<TypeSizeOp> {
       return success();
     }
 
-    if (NT != op.getSourceAttr().getValue() || type != op.getType()) {
+    if (NT != op.sourceAttr().getValue() || type != op.getType()) {
       rewriter.replaceOpWithNewOp<TypeSizeOp>(op, type, NT);
       return success();
     }
@@ -282,7 +282,7 @@ struct TypeAlignOpLowering : public ConvertOpToLLVMPattern<TypeAlignOp> {
   matchAndRewrite(TypeAlignOp op, OpAdaptor transformed,
                   ConversionPatternRewriter &rewriter) const override {
 
-    Type NT = op.getSourceAttr().getValue();
+    Type NT = op.sourceAttr().getValue();
     if (auto T = getTypeConverter()->convertType(NT)) {
       NT = T;
     }
@@ -297,7 +297,7 @@ struct TypeAlignOpLowering : public ConvertOpToLLVMPattern<TypeAlignOp> {
       return success();
     }
 
-    if (NT != op.getSourceAttr().getValue() || type != op.getType()) {
+    if (NT != op.sourceAttr().getValue() || type != op.getType()) {
       rewriter.replaceOpWithNewOp<TypeAlignOp>(op, type, NT);
       return success();
     }
@@ -585,9 +585,9 @@ struct AsyncOpLowering : public ConvertOpToLLVMPattern<async::ExecuteOp> {
       }
       vals.push_back(
           rewriter.create<LLVM::AddressOfOp>(execute.getLoc(), func));
-      for (auto dep : execute.getDependencies()) {
+      for (auto dep : execute.dependencies()) {
         auto ctx = dep.getDefiningOp<polygeist::StreamToTokenOp>();
-        vals.push_back(ctx.getSource());
+        vals.push_back(ctx.source());
       }
       assert(vals.size() == 3);
 
@@ -641,7 +641,7 @@ struct GetFuncOpConversion : public OpConversionPattern<polygeist::GetFuncOp> {
       return failure();
 
     rewriter.replaceOpWithNewOp<LLVM::AddressOfOp>(op, convertedType,
-                                                   op.getName());
+                                                   op.name());
 
     return success();
   }
@@ -654,7 +654,7 @@ struct ReturnOpTypeConversion : public ConvertOpToLLVMPattern<LLVM::ReturnOp> {
   matchAndRewrite(LLVM::ReturnOp op, LLVM::ReturnOp::Adaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto replacement =
-        rewriter.replaceOpWithNewOp<LLVM::ReturnOp>(op, adaptor.getArg());
+        rewriter.replaceOpWithNewOp<LLVM::ReturnOp>(op, adaptor.getArgs()[0]);
     replacement->setAttrs(adaptor.getAttributes());
     return success();
   }
@@ -753,8 +753,10 @@ public:
           loc, outerSize, createIndexConstant(rewriter, loc, innerSizes));
     }
     Value null = rewriter.create<LLVM::NullOp>(loc, convertedType);
+    std::vector<int32_t> struct_indices = {1};
+    std::vector<Value> indices = {};
     auto next =
-        rewriter.create<LLVM::GEPOp>(loc, convertedType, null, LLVM::GEPArg(1));
+        rewriter.create<LLVM::GEPOp>(loc, convertedType, null, indices, struct_indices);
     Value elementSize =
         rewriter.create<LLVM::PtrToIntOp>(loc, getIndexType(), next);
     Value size = rewriter.create<LLVM::MulOp>(loc, totalSize, elementSize);
@@ -770,7 +772,7 @@ public:
               ? LLVM::lookupOrCreateGenericAllocFn(module, getIndexType())
               : LLVM::lookupOrCreateMallocFn(module, getIndexType());
       Value allocated =
-          rewriter.create<LLVM::CallOp>(loc, mallocFunc, size).getResult();
+          rewriter.create<LLVM::CallOp>(loc, mallocFunc, size).getResult(0);
       rewriter.replaceOpWithNewOp<LLVM::BitcastOp>(allocOp, convertedType,
                                                    allocated);
     }
@@ -897,13 +899,14 @@ public:
       rewriter.replaceOp(getGlobalOp, wholeAddress);
       return success();
     }
-
+    std::vector<Value> indices;
+    std::vector<int32_t> struct_indices = {2,0};
     rewriter.replaceOpWithNewOp<LLVM::GEPOp>(
         getGlobalOp,
         LLVM::LLVMPointerType::get(
             convertedType.cast<LLVM::LLVMArrayType>().getElementType(),
             originalType.getMemorySpaceAsInt()),
-        wholeAddress, SmallVector<LLVM::GEPArg>(/*Size=*/2, /*Value=*/0));
+        wholeAddress, indices, struct_indices);
     return success();
   }
 };
@@ -929,10 +932,10 @@ protected:
       return nullptr;
     }
 
-    SmallVector<LLVM::GEPArg> args = llvm::to_vector(llvm::map_range(
-        adaptor.getIndices(), [](Value v) { return LLVM::GEPArg(v); }));
+    // SmallVector<LLVM::GEPArg> args = llvm::to_vector(llvm::map_range(
+        // adaptor.getIndices(), [](Value v) { return LLVM::GEPArg(v); }));
     return rewriter.create<LLVM::GEPOp>(
-        loc, this->getElementPtrType(originalType), adaptor.getMemref(), args);
+        loc, this->getElementPtrType(originalType), adaptor.getMemref(), adaptor.getIndices());
   }
 };
 
@@ -1037,22 +1040,20 @@ static SmallVector<NamedAttribute> convertFuncAttributes(
           return TypeAttr::get(typeConverter.convertType(
               attr.getValue().cast<TypeAttr>().getValue()));
         };
-        if (attr.getName().getValue() ==
-            LLVM::LLVMDialect::getByValAttrName()) {
-          convertedAttrs.push_back(rewriter.getNamedAttr(
-              LLVM::LLVMDialect::getByValAttrName(), convert(attr)));
+        if (attr.getName().getValue() == "llvm.byval") {
+          convertedAttrs.push_back(rewriter.getNamedAttr("llvm.byval", convert(attr)));
         } else if (attr.getName().getValue() ==
-                   LLVM::LLVMDialect::getByRefAttrName()) {
+                   "llvm.byref") {
           convertedAttrs.push_back(rewriter.getNamedAttr(
-              LLVM::LLVMDialect::getByRefAttrName(), convert(attr)));
+              "llvm.byref", convert(attr)));
         } else if (attr.getName().getValue() ==
-                   LLVM::LLVMDialect::getStructRetAttrName()) {
+                   "llvm.sret") {
           convertedAttrs.push_back(rewriter.getNamedAttr(
-              LLVM::LLVMDialect::getStructRetAttrName(), convert(attr)));
+              "llvm.sret", convert(attr)));
         } else if (attr.getName().getValue() ==
-                   LLVM::LLVMDialect::getInAllocaAttrName()) {
+                   "llvm.inalloca") {
           convertedAttrs.push_back(rewriter.getNamedAttr(
-              LLVM::LLVMDialect::getInAllocaAttrName(), convert(attr)));
+              "llvm.inalloca", convert(attr)));
         } else {
           convertedAttrs.push_back(attr);
         }
@@ -1104,12 +1105,12 @@ static Optional<
 convertFunctionType(func::FuncOp funcOp, TypeConverter &typeConverter) {
   TypeConverter::SignatureConversion signatureConversion(
       funcOp.getNumArguments());
-  for (const auto &[index, type] : llvm::enumerate(funcOp.getArgumentTypes())) {
-    Type converted = typeConverter.convertType(type);
+  for (const auto &idx: llvm::enumerate(funcOp.getArgumentTypes())) {
+    Type converted = typeConverter.convertType(idx.value());
     if (!converted)
       return llvm::None;
 
-    signatureConversion.addInputs(index, converted);
+    signatureConversion.addInputs(idx.index(), converted);
   }
 
   Type resultType =
@@ -1197,7 +1198,7 @@ public:
     results.reserve(numResults);
     for (auto index : llvm::seq<unsigned>(0, numResults)) {
       results.push_back(rewriter.create<LLVM::ExtractValueOp>(
-          callOp->getLoc(), newCallOp->getResult(0), index));
+          callOp->getLoc(), callResultTypes[index], newCallOp->getResult(0), rewriter.getI64ArrayAttr(index)));
     }
     rewriter.replaceOp(callOp, results);
     return success();
@@ -1223,9 +1224,9 @@ public:
         llvm::to_vector(adaptor.getOperands().getTypes()));
     Value packed =
         rewriter.create<LLVM::UndefOp>(returnOp->getLoc(), returnedType);
-    for (const auto &[index, value] : llvm::enumerate(adaptor.getOperands())) {
+    for (const auto &idx : llvm::enumerate(adaptor.getOperands())) {
       packed = rewriter.create<LLVM::InsertValueOp>(returnOp->getLoc(), packed,
-                                                    value, index);
+                                                    idx.value(), rewriter.getI64ArrayAttr(idx.index()));
     }
     rewriter.replaceOpWithNewOp<LLVM::ReturnOp>(returnOp, packed);
     return success();
@@ -1337,7 +1338,7 @@ struct ConvertPolygeistToLLVMPass
       }
       populateMathToLLVMConversionPatterns(converter, patterns);
       populateOpenMPToLLVMConversionPatterns(converter, patterns);
-      arith::populateArithToLLVMConversionPatterns(converter, patterns);
+      arith::populateArithmeticToLLVMConversionPatterns(converter, patterns);
 
       converter.addConversion([&](async::TokenType type) { return type; });
 
