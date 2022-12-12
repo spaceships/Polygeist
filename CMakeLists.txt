@@ -89,3 +89,28 @@ add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(tools)
 add_subdirectory(test)
+
+install(DIRECTORY include/
+  DESTINATION include
+  COMPONENT polygeist-headers
+  FILES_MATCHING
+  PATTERN "*.def"
+  PATTERN "*.h"
+  PATTERN "*.inc"
+  PATTERN "*.td"
+  PATTERN "*.sv"
+  PATTERN "LICENSE.TXT"
+)
+
+install(DIRECTORY ${PROJECT_BINARY_DIR}/include/
+  DESTINATION include
+  COMPONENT polygeist-headers
+  FILES_MATCHING
+  PATTERN "*.def"
+  PATTERN "*.h"
+  PATTERN "*.gen"
+  PATTERN "*.inc"
+  PATTERN "*.td"
+  PATTERN "CMakeFiles" EXCLUDE
+  PATTERN "config.h" EXCLUDE
+)
